@@ -1,0 +1,49 @@
+La preuve !
+
+Voici le script awk « sort.awk » :
+
+ 
+
+{
+
+        if ( RES[$0] != $0 ) {
+
+                RES[$0] = $0
+
+        }
+
+}
+
+END {
+
+        for ( r in RES ) {
+
+                print RES[r]
+
+        }
+
+}
+
+ 
+
+ 
+
+Testé sur un fichier de 6 555 029 lignes, le sort met 1’44, alors que le awk met 48 secondes (moitié moins) :
+[atkstats@srvpro03 recupActifsOFR022009]$ wc -l note_all.060209.OFRCDT3.CHT
+6555029 note_all.060209.OFRCDT3.CHT
+
+[atkstats@srvpro03 recupActifsOFR022009]$ date ; cat note_all.060209.OFRCDT3.CHT | sort -u | wc -l ; date
+jeu avr 30 12:36:49 CEST 2009
+6531223
+jeu avr 30 12:38:33 CEST 2009
+
+[atkstats@srvpro03 recupActifsOFR022009]$ date ; cat note_all.060209.OFRCDT3.CHT | awk -f sort.awk | wc -l ; date
+jeu avr 30 12:38:45 CEST 2009
+6531223
+jeu avr 30 12:39:33 CEST 2009
+ 
+
+du coup il est possible de créer un alias plus performant:
+
+
+sort => awk –f sort.awk

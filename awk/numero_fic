@@ -1,0 +1,4 @@
+#!/bin/awk -f
+{
+printf "%02u : %s\n",FNR,$0;
+}

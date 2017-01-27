@@ -1,0 +1,17 @@
+#!/bin/awk -f
+BEGIN {
+	if (ARGC==1) exit
+	encours=1
+	lignes=0
+}
+encours<ARGIND {
+	print ARGV[encours]" : " lignes " lignes."
+	lignes=0
+	encours=ARGIND
+}
+{
+	lignes++
+}
+END {
+	if (lignes) print ARGV[encours]" : " lignes " lignes."
+}

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<html>
+ <head>
+  <title href=" start.oml">Samples</title>
+  <breadcrumbs>
+   <ni href="start.oml">Samples</ni>
+   <ni>navbar</ni>
+  </breadcrumbs>
+  <navbar>
+   <ni href="any/url" current="true">one</ni>
+   <ni href="any/url">two</ni>
+   <ni href="any/url">three</ni>
+  </navbar>
+ </head>
+ <body>
+  <block title="the &lt;navbar&gt; element">
+The navbar element is displayed at the top of the page.
+  </block>
+ </body>
+</html>

@@ -1,0 +1,14 @@
+#!/bin/sh
+mysqlslow="$1"
+zgrep -i -e "^(select)|(delete)|(insert)|(replace)" $mysqlslow | cut -c1-30 | sort | uniq -c | sort -k 1 -n -r | awk '
+{
+   count[NR] = $1
+   sum += count[NR]
+   line[NR] = $0
+}
+END {
+   for(i=1; i!=NR; i++) {
+       print line[i] " " int(count[i]/sum*10000)/100 "%"
+   }
+   print "Total : " sum
+}'

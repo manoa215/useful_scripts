@@ -1,0 +1,52 @@
+#!/bin/sh
+#
+# Take in input a file and merge Qos result for those files.
+#
+# Ex: cat qos1 qos2 qos3 ... | qos-merge
+#
+# This will add all columns for the same "period" entry (first qos column)
+# Percentages if presents are recalculated based on the second column which should be the hits sum
+#
+#
+awk '
+{
+  if (NF>maxNF)
+      maxNF=NF
+  # First field is the period
+  period = $1
+  if (period!=current) {
+      xperiods[period] = 1;
+      current = period;
+  }
+  # Second field must be sum
+  sum[period,1] += $2;
+  i=3;
+  while(i<=NF) {
+      sum[period,i] += $i;
+      i++;
+      # percents ???
+      if (i<=NF && match($i,".*%"))
+          sum[period,i++] = -1;
+  }
+}
+END {
+  for(p in xperiods)
+      periods[++nperiod] = p
+  asort(periods);
+  for(iperiod=1;iperiod<=nperiod;iperiod++) {
+      period = periods[iperiod];
+      line = period "\t" sum[period,1];
+      i=3;
+      while(i<=maxNF) {
+          line = line "\t" sum[period,i];
+          # percents ???
+          if (i<NF && sum[period,i+1]==-1) {
+              pdata = int(sum[period,i]/sum[period,1]*10000) / 100;
+              line = line "\t" pdata "%"
+              i++;
+          }
+          i++;
+      }
+      print line;
+  }
+}'

@@ -1,0 +1,2 @@
+cat fr_pseudo_GOOD.txt | sed 's/\(à\|â\)/a/g' | sed 's/\(é\|è\|ê\|ë\)/e/g' | sed 's/\(ï\|î\)/i/g' | sed 's/\(ô\|ö\)/o/g' |sed 's/\(ù\|û\|ü\)/u/g' | sed 's/-//g' | sed 's/\x9c/oe/g' > fr_pseudo_GOOD.txt.new
+

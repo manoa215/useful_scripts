@@ -1,0 +1,32 @@
+#!/bin/sh
+# Produce statistics from nginx access_log
+# $1 = logfile
+[ $1 ] || exit 0
+logfile=$1
+
+# assume we haven't had more than 1000 rps over the past 5 minutes
+# 5*60*1000=300,000
+tail -300000 $logfile | cut -f4 -d ' ' | uniq -c > /tmp/statsnginx.1.$$
+#we sort above in case timetamp jumps around - yes I've seen it
+#Now we have raw data in /tmp/statsnginx.1.$$
+#10 sec = last 10 lines
+#1 min = last 60 lines
+#5 min = last 300 lines
+
+#Concise output on one line
+#last 10s
+c10s=`tail -10 /tmp/statsnginx.1.$$ | awk '{ s += $1 } END  { print int(s/NR) }'`
+#last 1m
+c1m=`tail -60 /tmp/statsnginx.1.$$ | awk '{ s += $1 } END  { print int(s/NR) }'`
+#last 5m
+c5m=`tail -300 /tmp/statsnginx.1.$$ | awk '{ s += $1 } END  { print int(s/NR) }'`
+echo -n "c10s:${c10s}"
+echo -n " "
+echo -n "c1m:${c1m}"
+echo -n " "
+echo -n "c5m:${c5m}"
+echo ""
+
+rm -f /tmp/statsnginx.1.$$
+exit 0
+

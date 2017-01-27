@@ -1,0 +1,146 @@
+#!/bin/sh
+#
+# This script calculate a "Qos" for the given log file.
+# It's adapted to parse apache logs or note log.
+#
+# Parameters :
+#               $1 log type, this may be "note" or "apache"
+#                  note log must be in the form "chat" (if analyze is given to take the right "time" field)
+#                  apache log must include the response time in the last field (to be "analyzed")
+#               $2 interval, it's the choosen "minutes interval" for the results, commonly 10, 15, 60
+#               $3 reponse time analyse, if empty only "hit count" is given, if not the syntax is + or - n (seconds)
+#                  for example +19 or -1, +19 generate a column for all requests with a response time >= 19s
+#                  -1 generate a column for each request with a response time <= 1s.
+#                  the script generate as column as analyze have entries (ex: "+10 +20 -5 -3 ...")
+#                  another column is added indicating the "percentage" calculated from the "hit count"
+#               $4 year. Required only for "note" logs as the year is not included in the log file.
+#
+# Example: qos-analyze apache 10 "+19 -1"
+#          qos-analyze note 10 "-1" 2004
+#          qos-analyze mysql 10 "-1" 2004
+#
+# The result is printed on the stdout in the form:
+#
+#    19/09/2004:01:00	164	7	4.26%	49	29.87%
+#    19/09/2004:01:10	240	1	0.41%	57	23.75%
+#    19/09/2004:01:20	172	0	0%	43	25%
+#    ....
+#
+# See also qos-merge to be able to merge several qos files
+#
+if [ x"$1" == x"note" ]; then
+  field=":"
+  # This is the index of the "response time" field in a chat note log
+  iresp=14
+fi
+if [ x"$1" == x"apache" ]; then
+  field=" "
+fi
+if [ x"$1" == x"mysql" ]; then
+  field=" "
+fi
+logtype=$1
+interval=$2
+analyze=$3
+year=$4
+awk -F "$field" -v logtype="$logtype" -v interval="$interval" -v analyze="$analyze" -v iresp="$iresp" -v year="$year" -v percent="true" '
+BEGIN {
+  months["Jan"] = "01";
+  months["Feb"] = "02";
+  months["Mar"] = "03";
+  months["Apr"] = "04";
+  months["May"] = "05";
+  months["Jun"] = "06";
+  months["Jul"] = "07";
+  months["Aug"] = "08";
+  months["Sep"] = "09";
+  months["Oct"] = "10";
+  months["Nov"] = "11";
+  months["Dec"] = "12";
+  # Internal
+  nperiod = 0
+  current_period = ""
+  # Parse data to be displayed
+  # + means more than x seconds - less
+  split(analyze,data," ");
+}
+function get_periodFromApache(atime) {
+  # Extract date from Apache date field
+  split(gensub(/\[(.+)\/(.+)\/(.+):(.+):(.+):(.+)/,"\\1 \\2 \\3 \\4 \\5 \\6","g",atime),date," ");
+  # Calculate the corresponding period
+  return date[3] " " months[date[2]] " " date[1] " " date[4] " " int(date[5]/interval)*interval
+}
+function get_periodFromNote(t1,t2,t3) {
+  # Extract first field (month + day + hour)
+  split(gensub(/(.+) (.+) (.+)/,"\\1 \\2 \\3","g",t1),date," ");
+  # Calculate the corresponding period
+  return months[date[1]] " " date[2] " " date[3] " " int(t2/interval)*interval
+}
+function get_periodFromMysql(t1,t2) {
+  split(gensub(/(..)(..)(..)/,"\\1 \\2 \\3","g",t1),date," ");
+  split(gensub(/(.+):(.+):(.+)/,"\\1 \\2 \\3","g",t2),hour," ");
+  return "20" date[1] " " date[2] " " date[3] " " hour[1] " " int(hour[2]/interval)*interval
+}
+{
+  # Extract period from time log
+  # This will calculate the nearest time from the input time.
+  # This methods must return the "period" on the form "yyyy mm dd hh mm" (no "seconds" field)
+  if      (logtype == "apache") period = get_periodFromApache($4)
+  else if (logtype == "note")   period = get_periodFromNote($1,$2,$3)
+  else if (logtype == "mysql")  { 
+      # Only "Time" logs
+      if (index($0,"# Time:") == 1) {
+          period = get_periodFromMysql($3,$4)
+      }
+      # We continue the calculations only for "# Query_time" lines
+      if (index($0,"# Query_time:") != 1)
+          next
+  }
+
+  # Only if this is a "log line" (corresponding to a hit)
+
+  if (period != current_period) {
+      current_period = period
+      periods[++nperiod] = period
+         for (k in data)
+             data_result[nperiod,k] = 0;
+      total[nperiod] = 0
+  }
+  total[nperiod] += 1;
+
+  if      (logtype == "apache")
+      response = $NF
+  else if (logtype == "note") {
+      if (iresp > 0) response = $iresp/1000
+      else           response = $(NF+iresp)/1000
+  } else if (logtype == "mysql") {
+      response = $3
+  }
+
+  # Analyze response
+  for (k in data) {
+      criteria = data[k];
+      # criteria > 0 means more than x seconds < 0 less
+      if ((criteria > 0 && response >= criteria) || (criteria < 0 && response <= (-criteria)))
+          data_result[nperiod,k] += 1;
+  }
+}
+END {
+  for(i=1;i<=nperiod;i++) {
+      if (year)
+          p = mktime(year " " periods[i] " 00");
+      else
+          p = mktime(periods[i] " 00");
+      ptime = strftime("%d/%m/%Y:%H:%M",p);
+      sdata = ""
+      for(k in data) {
+         sdata = sdata "\t" data_result[i,k]
+         if (percent) {
+             # Calcule percent
+             pdata = int(data_result[i,k]/total[i]*10000) / 100
+             sdata = sdata "\t" pdata "%"
+         }
+      }
+      print ptime "\t" total[i] sdata
+  }
+}'
